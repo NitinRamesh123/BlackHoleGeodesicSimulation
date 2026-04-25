@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Hole Geodesic Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', 'Courier New', monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        h1 {
+            color: #ff6b6b;
+            margin-bottom: 5px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            text-shadow: 0 0 10px rgba(255,107,107,0.5);
+        }
+        
+        .subtitle {
+            color: #888;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        canvas {
+            background: #050508;
+            border: 1px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        
+        .controls {
+            background: #12121a;
+            border: 1px solid #2a2a3a;
+            border-radius: 8px;
+            padding: 20px;
+            width: 280px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #aaa;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .control-group input {
+            width: 100%;
+            padding: 8px;
+            background: #1a1a25;
+            border: 1px solid #3a3a50;
+            color: #fff;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .control-group input[type="range"] {
+            padding: 0;
+            accent-color: #ff6b6b;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 10px;
+            background: #ff6b6b;
+            color: #0a0a0f;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            font-family: 'Segoe UI', sans-serif;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #ff8585;
+            box-shadow: 0 0 20px rgba(255,107,107,0.3);
+        }
+        
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+        
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background: #0a0a12;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            border-left: 3px solid #ff6b6b;
+        }
+        
+        .stats div {
+            margin: 5px 0;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 12px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .color-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+        
+        .note {
+            margin-top: 15px;
+            font-size: 11px;
+            color: #666;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🕳️ SCHWARZSCHILD GEODESIC</h1>
+    <div class="subtitle">Leapfrog Integration · Proper Time Evolution</div>
+    
+    <div class="container">
+        <canvas id="canvas" width="600" height="600"></canvas>
+        
+        <div class="controls">
+            <div class="control-group">
+                <label>Initial Radius (r/M)</label>
+                <input type="range" id="r0" min="4" max="20" value="12" step="0.5">
+                <input type="number" id="r0_num" min="4" max="20" value="12" step="0.5" style="margin-top:5px;">
+            </div>
+            
+            <div class="control-group">
+                <label>Initial Angular Momentum</label>
+                <input type="range" id="L" min="3.0" max="5.0" value="3.8" step="0.05">
+                <input type="number" id="L_num" min="3.0" max="5.0" value="3.8" step="0.05" style="margin-top:5px;">
+            </div>
+            
+            <div class="control-group">
+                <label>Inward Radial Velocity</label>
+                <input type="range" id="vr0" min="-0.15" max="0" value="-0.05" step="0.01">
+                <input type="number" id="vr0_num" min="-0.15" max="0" value="-0.05" step="0.01" style="margin-top:5px;">
+            </div>
+            
+            <div class="control-group">
+                <label>Particles</label>
+                <input type="range" id="numParticles" min="1" max="1000" value="3" step="1">
+                <input type="number" id="numParticles_num" min="1" max="1000" value="3" step="1" style="margin-top:5px;">
+            </div>
+            
+            <button id="startBtn">▶ START SIMULATION</button>
+            <button id="resetBtn" style="background:#2a2a3a; color:#fff; margin-top:5px;">↻ RESET</button>
+            
+            <div class="stats">
+                <div>📊 <strong>Simulation Status</strong></div>
+                <div id="tauDisplay">Proper Time τ: 0.0 M</div>
+                <div id="activeDisplay">Active Particles: 3</div>
+                <div id="horizonDisplay">Horizon Crossings: 0</div>
+            </div>
+            
+            <div class="legend">
+                <div class="legend-item"><span class="color-dot" style="background:#fff; box-shadow:0 0 10px #fff;"></span> Horizon</div>
+                <div class="legend-item"><span class="color-dot" style="background:#ff6b6b;"></span> ISCO (6M)</div>
+                <div class="legend-item"><span class="color-dot" style="background:#6bff6b;"></span> Photon Sphere (3M)</div>
+            </div>
+            
+            <div class="note">
+                ⚡ Leapfrog Integrator · M = 1 (Geometric Units)<br>
+                Particles evolve in proper time τ
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // SCHWARZSCHILD BLACK HOLE GEODESIC SIMULATOR
+        // Leapfrog Integration in Proper Time
+        // ============================================================
+        
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Simulation state
+        let particles = [];
+        let animationId = null;
+        let globalTau = 0;
+        let horizonCrossings = 0;
+        
+        // Constants
+        const M = 1.0;  // Black hole mass in geometric units
+        const RS = 2 * M;  // Schwarzschild radius (event horizon)
+        const RISCO = 6 * M;  // Innermost Stable Circular Orbit
+        const RPHOTON = 3 * M;  // Photon sphere
+        const DTAU = 0.05;  // Proper time step
+        
+        // Canvas scale: 1 unit = 30 pixels, center at (300, 300)
+        const SCALE = 22;
+        const OFFSET_X = 300;
+        const OFFSET_Y = 300;
+        
+        // ============================================================
+        // Metric and Christoffel Functions
+        // ============================================================
+        
+        function metricComponents(r) {
+            // Returns g_tt, g_rr, g_thth, g_phiphi for equatorial plane (theta=pi/2)
+            if (r <= RS) return null;  // Inside horizon
+            
+            const g_tt = -(1 - RS/r);
+            const g_rr = 1 / (1 - RS/r);
+            const g_phiphi = r * r;
+            
+            return { g_tt, g_rr, g_phiphi };
+        }
+        
+        function computeAcceleration(state, vel) {
+            // Computes d²x/dτ² for Schwarzschild equatorial plane
+            const r = state[1];
+            
+            if (r <= RS + 0.01) {
+                return [0, 0, 0, 0];  // At horizon
+            }
+            
+            const vt = vel[0];
+            const vr = vel[1];
+            const vphi = vel[3];
+            
+            // Christoffel symbol contractions
+            const a_t = -(RS / (r * r * (1 - RS/r))) * vt * vr;
+            
+            const term1 = -(RS * (r - RS) / (2 * r * r * r)) * vt * vt;
+            const term2 = (RS / (2 * r * (r - RS))) * vr * vr;
+            const term3 = (r - RS) * vphi * vphi;
+            const a_r = term1 + term2 + term3;
+            
+            const a_th = 0;  // Equatorial plane
+            
+            const a_phi = -(2 / r) * vr * vphi;
+            
+            return [a_t, a_r, a_th, a_phi];
+        }
+        
+        function normalizeVelocity(state, vel) {
+            // Enforce u^μ u_μ = -1 (timelike condition)
+            const r = state[1];
+            const metric = metricComponents(r);
+            if (!metric) return vel;
+            
+            const { g_tt, g_rr, g_phiphi } = metric;
+            
+            const norm = g_tt * vel[0] * vel[0] + 
+                        g_rr * vel[1] * vel[1] + 
+                        g_phiphi * vel[3] * vel[3];
+            
+            if (norm >= 0) {
+                // Particle has become null/lightlike - rescale to timelike
+                const scale = Math.sqrt(-0.999 / norm);
+                return [vel[0] * scale, vel[1] * scale, 0, vel[3] * scale];
+            }
+            
+            return vel;
+        }
+        
+        // ============================================================
+        // Leapfrog Step (Drift-Kick-Drift)
+        // ============================================================
+        
+        function leapfrogStep(state, vel, dtau) {
+            // Half-step position
+            const state_half = [
+                state[0] + 0.5 * dtau * vel[0],
+                state[1] + 0.5 * dtau * vel[1],
+                state[2] + 0.5 * dtau * vel[2],
+                state[3] + 0.5 * dtau * vel[3]
+            ];
+            
+            // Compute acceleration at half-step
+            const accel = computeAcceleration(state_half, vel);
+            
+            // Full-step velocity
+            const vel_new = [
+                vel[0] + dtau * accel[0],
+                vel[1] + dtau * accel[1],
+                vel[2] + dtau * accel[2],
+                vel[3] + dtau * accel[3]
+            ];
+            
+            // Complete position step
+            const state_new = [
+                state_half[0] + 0.5 * dtau * vel_new[0],
+                state_half[1] + 0.5 * dtau * vel_new[1],
+                state_half[2] + 0.5 * dtau * vel_new[2],
+                state_half[3] + 0.5 * dtau * vel_new[3]
+            ];
+            
+            return { state: state_new, vel: vel_new };
+        }
+        
+        // ============================================================
+        // Particle Initialization
+        // ============================================================
+        
+        function createParticle(r0, L, vr0) {
+            // State: [t, r, theta, phi]
+            const state = [0, r0, Math.PI/2, 0];
+            
+            // Initial angular velocity from angular momentum L
+            const vphi = L / (r0 * r0);
+            
+            // Compute vt from normalization condition u^μ u_μ = -1
+            const metric = metricComponents(r0);
+            const g_tt = metric.g_tt;
+            const g_rr = metric.g_rr;
+            const g_phiphi = metric.g_phiphi;
+            
+            // g_tt * vt^2 + g_rr * vr^2 + g_phiphi * vphi^2 = -1
+            const vt = Math.sqrt((-1 - g_rr * vr0 * vr0 - g_phiphi * vphi * vphi) / g_tt);
+            
+            const vel = [vt, vr0, 0, vphi];
+            
+            return {
+                state: state,
+                vel: vel,
+                history: [],
+                active: true,
+                color: `hsl(${Math.random() * 60 + 300}, 70%, 60%)`
+            };
+        }
+        
+        // ============================================================
+        // Simulation Loop
+        // ============================================================
+        
+        function simulationStep() {
+            let activeCount = 0;
+            
+            for (let p of particles) {
+                if (!p.active) continue;
+                
+                const result = leapfrogStep(p.state, p.vel, DTAU);
+                p.state = result.state;
+                p.vel = normalizeVelocity(p.state, result.vel);
+                
+                // Store history for trail (every 5 steps)
+                if (Math.floor(globalTau * 20) % 5 === 0) {
+                    p.history.push({ r: p.state[1], phi: p.state[3] });
+                    if (p.history.length > 150) p.history.shift();
+                }
+                
+                // Check if particle crossed horizon
+                if (p.state[1] <= RS) {
+                    p.active = false;
+                    horizonCrossings++;
+                } else {
+                    activeCount++;
+                }
+            }
+            
+            globalTau += DTAU;
+            return activeCount;
+        }
+        
+        // ============================================================
+        // Rendering
+        // ============================================================
+        
+        function worldToScreen(r, phi) {
+            const x = OFFSET_X + r * Math.cos(phi) * SCALE;
+            const y = OFFSET_Y + r * Math.sin(phi) * SCALE;
+            return { x, y };
+        }
+        
+        function draw() {
+            ctx.clearRect(0, 0, 600, 600);
+            
+            // Draw background grid
+            ctx.strokeStyle = '#1a1a2a';
+            ctx.lineWidth = 0.5;
+            for (let r = 2; r <= 20; r += 2) {
+                ctx.beginPath();
+                ctx.arc(OFFSET_X, OFFSET_Y, r * SCALE, 0, 2 * Math.PI);
+                ctx.stroke();
+            }
+            
+            // Draw radial lines
+            for (let ang = 0; ang < 2 * Math.PI; ang += Math.PI/6) {
+                const x = OFFSET_X + 20 * SCALE * Math.cos(ang);
+                const y = OFFSET_Y + 20 * SCALE * Math.sin(ang);
+                ctx.beginPath();
+                ctx.moveTo(OFFSET_X, OFFSET_Y);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = '#151525';
+                ctx.stroke();
+            }
+            
+            // Draw photon sphere (r=3M)
+            ctx.beginPath();
+            ctx.arc(OFFSET_X, OFFSET_Y, RPHOTON * SCALE, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#6bff6b';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            
+            // Draw ISCO (r=6M)
+            ctx.beginPath();
+            ctx.arc(OFFSET_X, OFFSET_Y, RISCO * SCALE, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Draw event horizon (r=2M)
+            const gradient = ctx.createRadialGradient(300, 300, 0, 300, 300, RS * SCALE + 10);
+            gradient.addColorStop(0, '#000000');
+            gradient.addColorStop(0.7, '#0a0a0a');
+            gradient.addColorStop(1, '#151520');
+            ctx.beginPath();
+            ctx.arc(OFFSET_X, OFFSET_Y, RS * SCALE, 0, 2 * Math.PI);
+            ctx.fillStyle = gradient;
+            ctx.fill();
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw accretion disk glow
+            ctx.beginPath();
+            ctx.arc(OFFSET_X, OFFSET_Y, RS * SCALE + 2, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ff4444';
+            ctx.lineWidth = 3;
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 15;
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            
+            // Draw particle trails
+            for (let p of particles) {
+                if (p.history.length < 2) continue;
+                
+                ctx.beginPath();
+                const first = worldToScreen(p.history[0].r, p.history[0].phi);
+                ctx.moveTo(first.x, first.y);
+                
+                for (let i = 1; i < p.history.length; i++) {
+                    const pt = worldToScreen(p.history[i].r, p.history[i].phi);
+                    ctx.lineTo(pt.x, pt.y);
+                }
+                
+                ctx.strokeStyle = p.color;
+                ctx.lineWidth = p.active ? 2 : 1;
+                ctx.globalAlpha = p.active ? 0.8 : 0.3;
+                ctx.stroke();
+            }
+            ctx.globalAlpha = 1.0;
+            
+            // Draw current particle positions
+            for (let p of particles) {
+                if (!p.active) continue;
+                
+                const pos = worldToScreen(p.state[1], p.state[3]);
+                
+                ctx.beginPath();
+                ctx.arc(pos.x, pos.y, 4, 0, 2 * Math.PI);
+                ctx.fillStyle = p.color;
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 12;
+                ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+            
+            // Update stats display
+            const activeCount = particles.filter(p => p.active).length;
+            document.getElementById('tauDisplay').textContent = 
+                `Proper Time τ: ${globalTau.toFixed(1)} M`;
+            document.getElementById('activeDisplay').textContent = 
+                `Active Particles: ${activeCount}`;
+            document.getElementById('horizonDisplay').textContent = 
+                `Horizon Crossings: ${horizonCrossings}`;
+        }
+        
+        function animate() {
+            const activeCount = simulationStep();
+            draw();
+            
+            if (activeCount > 0) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                animationId = null;
+                document.getElementById('startBtn').textContent = '▶ START SIMULATION';
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+        
+        // ============================================================
+        // UI Controls
+        // ============================================================
+        
+        function resetSimulation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+            }
+            
+            const r0 = parseFloat(document.getElementById('r0').value);
+            const L = parseFloat(document.getElementById('L').value);
+            const vr0 = parseFloat(document.getElementById('vr0').value);
+            const numParticles = parseInt(document.getElementById('numParticles').value);
+            
+            particles = [];
+            globalTau = 0;
+            horizonCrossings = 0;
+            
+            for (let i = 0; i < numParticles; i++) {
+                // Slight variations for multiple particles
+                const rOffset = i * 0.3;
+                const phiOffset = (i * 2 * Math.PI) / numParticles;
+                
+                const p = createParticle(r0 + rOffset, L, vr0);
+                p.state[3] = phiOffset;
+                particles.push(p);
+            }
+            
+            draw();
+            document.getElementById('startBtn').textContent = '▶ START SIMULATION';
+            document.getElementById('startBtn').disabled = false;
+        }
+        
+        function startSimulation() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+                animationId = null;
+                document.getElementById('startBtn').textContent = '▶ START SIMULATION';
+            } else {
+                if (particles.filter(p => p.active).length === 0) {
+                    resetSimulation();
+                }
+                animationId = requestAnimationFrame(animate);
+                document.getElementById('startBtn').textContent = '⏸ PAUSE SIMULATION';
+            }
+        }
+        
+        // Sync sliders with number inputs
+        function syncInputs() {
+            const r0 = document.getElementById('r0');
+            const r0_num = document.getElementById('r0_num');
+            const L = document.getElementById('L');
+            const L_num = document.getElementById('L_num');
+            const vr0 = document.getElementById('vr0');
+            const vr0_num = document.getElementById('vr0_num');
+            const num = document.getElementById('numParticles');
+            const num_num = document.getElementById('numParticles_num');
+            
+            r0.addEventListener('input', () => r0_num.value = r0.value);
+            r0_num.addEventListener('input', () => r0.value = r0_num.value);
+            L.addEventListener('input', () => L_num.value = L.value);
+            L_num.addEventListener('input', () => L.value = L_num.value);
+            vr0.addEventListener('input', () => vr0_num.value = vr0.value);
+            vr0_num.addEventListener('input', () => vr0.value = vr0_num.value);
+            num.addEventListener('input', () => num_num.value = num.value);
+            num_num.addEventListener('input', () => num.value = num_num.value);
+        }
+        
+        // ============================================================
+        // Initialize
+        // ============================================================
+        
+        syncInputs();
+        
+        document.getElementById('startBtn').addEventListener('click', startSimulation);
+        document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+        
+        // Create initial particles
+        resetSimulation();
+        
+        // Handle window resize (keep canvas size fixed)
+        // Add keyboard shortcut: Space to start/pause
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                startSimulation();
+            }
+        });
+    </script>
+</body>
+</html>
